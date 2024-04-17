@@ -7,8 +7,8 @@ from yaml import YAMLObject
 
 import torch.nn as nn
 import torch
-from transformers import AutoModel, AutoConfig
-from allennlp.modules.elmo import _ElmoBiLm
+from transformers import AutoModel, AutoConfig, BertModel
+#from allennlp.modules.elmo import _ElmoBiLm
 
 from utils import InitYAMLObject
 
@@ -80,10 +80,52 @@ class HuggingfaceModel(nn.Module, InitYAMLObject):
       to the corpus-given tokens
     """
     annotation, alignment = batch
-    #_, _, hiddens = self.huggingface_model(annotation)
-    hiddens = self.huggingface_model(annotation).hidden_states
+    _, _, hiddens = self.huggingface_model(annotation)
+    #hiddens = self.huggingface_model(annotation).hidden_states
+    print(hiddens[self.index].size())
     return torch.bmm(hiddens[self.index].transpose(1,2), alignment).transpose(1,2)
+  
 
+class BertKobayashiModel(nn.Module, InitYAMLObject):
+  """
+  Taking token-ids and providing representation
+  layers from a BERT model. Implemented separately
+  to account for Kobayashi's transformers library
+  """
+  yaml_tag = '!BertKobayashiModel'
+
+  def pad_to_feature_count(tensor, feature_count):
+    pad_width = (0, feature_count - tensor.size(2))
+    padded_tensor = nn.functional.pad(tensor, pad_width, mode='constant', value=0)
+    return padded_tensor
+
+  def __init__(self, args, model_string, trainable, index):
+    super(BertKobayashiModel, self).__init__()
+    self.bert_model = BertModel.from_pretrained(model_string)
+    for param in self.bert_model.parameters():
+      param.requires_grad = trainable
+    self.index = index
+    self.to(args['device'])
+  
+  def forward(self, batch):
+    """
+    Args:
+      batch: a tuple containing:
+        - a tensor of shape (batch_size, subword_seq_len) containing
+          token id indices
+        - a tensor of shape (subword_len, seq_len) containing
+          alignment between the subwords and the output sequence
+    Returns:
+      Representations from the given huggingface-formatted model, aligned
+      to the corpus-given tokens
+    """
+    print("Enter Model....")
+    annotation, alignment = batch
+    #_, _, hiddens = self.huggingface_model(annotation)
+    _, _, hiddens, norms = self.bert_model(annotation, output_hidden_states = True, output_norms = True)
+    print(norms[self.index][1])
+    #norms_padded = self.pad_to_feature_count(norms[self.index][1], 768)
+    return torch.bmm(hiddens.transpose(1,2), alignment).transpose(1,2)
 
 class AnnotationModel(nn.Module, InitYAMLObject):
   yaml_tag = '!AnnotationModel'

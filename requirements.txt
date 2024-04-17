@@ -1,5 +1,5 @@
 torch
-allennlp==1.0.0
+#allennlp==1.0.0
 stanza
 tqdm
 transformers

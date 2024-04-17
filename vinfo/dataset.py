@@ -9,7 +9,7 @@ import Levenshtein as levenshtein
 from tqdm import tqdm
 from yaml import YAMLObject
 from transformers import AutoTokenizer, AutoModel
-from allennlp.modules.elmo import batch_to_ids
+#from allennlp.modules.elmo import batch_to_ids
 
 from utils import TRAIN_STR, DEV_STR, TEST_STR, InitYAMLObject
 
