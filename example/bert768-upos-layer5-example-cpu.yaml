@@ -44,7 +44,7 @@ model: !ListModel
   args: 
     device: cpu
   models:
-    - !BertKobayashiModel
+    - !HuggingfaceModel
         args:
           device: cpu
         model_string: *model1string

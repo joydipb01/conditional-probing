@@ -60,7 +60,7 @@ class HuggingfaceModel(nn.Module, InitYAMLObject):
                     e.g., google/bert-base
     """
     super(HuggingfaceModel, self).__init__()
-    self.huggingface_config = AutoConfig.from_pretrained(model_string, output_hidden_states=True)
+    self.huggingface_config = AutoConfig.from_pretrained(model_string, output_hidden_states=True, output_norms = True)
     self.huggingface_model = AutoModel.from_pretrained(model_string, config=self.huggingface_config)
     for param in self.huggingface_model.parameters():
       param.requires_grad = trainable
@@ -94,7 +94,7 @@ class BertKobayashiModel(nn.Module, InitYAMLObject):
   """
   yaml_tag = '!BertKobayashiModel'
 
-  def pad_to_feature_count(tensor, feature_count):
+  def pad_to_feature_count(self, tensor, feature_count):
     pad_width = (0, feature_count - tensor.size(2))
     padded_tensor = nn.functional.pad(tensor, pad_width, mode='constant', value=0)
     return padded_tensor
@@ -122,10 +122,9 @@ class BertKobayashiModel(nn.Module, InitYAMLObject):
     print("Enter Model....")
     annotation, alignment = batch
     #_, _, hiddens = self.huggingface_model(annotation)
-    _, _, hiddens, norms = self.bert_model(annotation, output_hidden_states = True, output_norms = True)
-    print(norms[self.index][1])
-    #norms_padded = self.pad_to_feature_count(norms[self.index][1], 768)
-    return torch.bmm(hiddens.transpose(1,2), alignment).transpose(1,2)
+    _, _, norms = self.bert_model(annotation, output_norms = True)
+    norms_padded = self.pad_to_feature_count(norms[self.index][1], 768)
+    return torch.bmm(norms_padded.transpose(1,2), alignment).transpose(1,2)
 
 class AnnotationModel(nn.Module, InitYAMLObject):
   yaml_tag = '!AnnotationModel'
