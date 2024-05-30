@@ -9,9 +9,12 @@ input_fields: &id_input_fields
   - dep_rel
 
 cache: &id_cache !WholeDatasetCache
-  train_path: &idtrainpath example/data/en_ewt-ud-sample/en_ewt-ud-train.conllu
-  dev_path: &iddevpath example/data/en_ewt-ud-sample/en_ewt-ud-dev.conllu
-  test_path: &idtestpath example/data/en_ewt-ud-sample/en_ewt-ud-test.conllu
+  train_path: &idtrainpath scripts/ontonotes_scripts/train.ontonotes.withdep.conll
+  dev_path: &iddevpath scripts/ontonotes_scripts/dev.ontonotes.withdep.conll
+  test_path: &idtestpath scripts/ontonotes_scripts/test.ontonotes.withdep.conll
+  # train_path: &idtrainpath example/data/en_ewt-ud-sample/en_ewt-ud-train.conllu
+  # dev_path: &iddevpath example/data/en_ewt-ud-sample/en_ewt-ud-dev.conllu
+  # test_path: &idtestpath example/data/en_ewt-ud-sample/en_ewt-ud-test.conllu
 
 disk_reader: !OntonotesReader &id_disk_reader
   args: 
@@ -39,12 +42,23 @@ dataset: !ListDataset
         device: cpu
       model_string: &model1string bert-base-cased
       cache: *id_cache
+    - !HuggingfaceData
+      args:
+        device: cpu
+      model_string: *model1string
+      cache: *id_cache
 
 model: !ListModel
   args: 
     device: cpu
   models:
-    - !BertKobayashiModel
+    - !BertATTNRESKobayashiModel
+        args:
+          device: cpu
+        model_string: *model1string
+        trainable: False
+        index: 5
+    - !BertATTNRESLNKobayashiModel
         args:
           device: cpu
         model_string: *model1string
@@ -54,7 +68,7 @@ model: !ListModel
 probe: !OneWordLinearLabelProbe
   args:
     device: cpu
-  model_dim: 768
+  model_dim: 1536
   label_space_size: 18
 
 regimen: !ProbeRegimen
@@ -62,7 +76,7 @@ regimen: !ProbeRegimen
     device: cpu
   max_epochs: 50
   params_path: params
-  reporting_root: &id_reporting_root example/results/bert-base-norm
+  reporting_root: &id_reporting_root example/results/bert-base-attnres-attnresln-norm.yaml.test
 
 reporter: !IndependentLabelReporter
   args:

@@ -13,7 +13,7 @@ from transformers import AutoTokenizer, AutoModel
 
 from utils import TRAIN_STR, DEV_STR, TEST_STR, InitYAMLObject
 
-BATCH_SIZE = 50
+BATCH_SIZE = 20
 """
 Classes for loading, caching, and yielding text datasets
 """
@@ -127,6 +127,7 @@ class ListDataset(Dataset, InitYAMLObject):
           new_annotation_tensor[:len(input_annotation)] = input_annotation
         elif len(input_annotation.shape) == 2: # characeter-level ids
           new_annotation_tensor = torch.zeros(max_annotation_token_len, input_annotation.shape[1]).long()
+          # new_annotation_tensor = torch.zeros(max_annotation_token_len, input_annotation.shape[1], dtype=torch.long)
           new_annotation_tensor[:len(input_annotation),:] = input_annotation
         intermediate_annotation_list.append(new_annotation_tensor)
         new_alignment_tensor = torch.zeros(max_annotation_token_len, max_corpus_token_len)
@@ -359,7 +360,10 @@ class HuggingfaceData(InitYAMLObject):
     if split == DEV_STR and self.dev_cache_tokens is not None:
       return next(self.dev_cache_tokens), next(self.dev_cache_alignments)
     if split == TEST_STR and self.test_cache_tokens is not None:
-      return next(self.test_cache_tokens), next(self.test_cache_alignments)
+      try:
+        return next(self.test_cache_tokens), next(self.test_cache_alignments)
+      except StopIteration:
+        return
     cache_writer = (self.train_cache_writer if split == TRAIN_STR else (
                     self.dev_cache_writer if split == DEV_STR else (
                     self.test_cache_writer if split == TEST_STR else None)))

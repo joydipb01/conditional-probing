@@ -1,0 +1,87 @@
+input_fields: &id_input_fields
+  - one_offset_word_index
+  - token
+  - lemma
+  - ptb_pos
+  - ptb_pos
+  - None
+  - dep_head
+  - dep_rel
+
+cache: &id_cache !WholeDatasetCache
+  # train_path: &idtrainpath scripts/ontonotes_scripts/train.ontonotes.withdep.conll
+  # dev_path: &iddevpath scripts/ontonotes_scripts/dev.ontonotes.withdep.conll
+  # test_path: &idtestpath scripts/ontonotes_scripts/test.ontonotes.withdep.conll
+  train_path: &idtrainpath example/data/en_ewt-ud-sample/en_ewt-ud-train.conllu
+  dev_path: &iddevpath example/data/en_ewt-ud-sample/en_ewt-ud-dev.conllu
+  test_path: &idtestpath example/data/en_ewt-ud-sample/en_ewt-ud-test.conllu
+
+disk_reader: !OntonotesReader &id_disk_reader
+  args: 
+    - device: cuda:0
+  train_path: *idtrainpath 
+  dev_path: *iddevpath 
+  test_path: *idtestpath 
+  cache: *id_cache
+
+dataset: !ListDataset
+  args: 
+    device: cuda:0
+  data_loader: *id_disk_reader
+  output_dataset: !AnnotationDataset
+    args: 
+      device: cuda:0
+    task: !TokenClassificationTask
+      args: 
+        device: cuda:0
+      task_name: ptb_pos
+      input_fields: *id_input_fields
+  input_datasets:
+    - !HuggingfaceData
+      args:
+        device: cuda:0
+      model_string: &model1string bert-base-cased
+      cache: *id_cache
+    - !HuggingfaceData
+      args:
+        device: cuda:0
+      model_string: *model1string
+      cache: *id_cache
+
+model: !ListModel
+  args: 
+    device: cuda:0
+  models:
+    - !BertATTNRESLNKobayashiModel
+        args:
+          device: cuda:0
+        model_string: *model1string
+        trainable: False
+        index: 5
+    - !BertATTNRESLNKobayashiModel
+        args:
+          device: cuda:0
+        model_string: *model1string
+        trainable: False
+        index: 0
+    
+probe: !OneWordLinearLabelProbe
+  args:
+    device: cuda:0
+  model_dim: 1536
+  label_space_size: 50
+
+regimen: !ProbeRegimen
+  args:
+    device: cuda:0
+  max_epochs: 50
+  params_path: params
+  reporting_root: &id_reporting_root example/results/ptb_pos/bert-base-attnresln-conditional/bert-base-attnresln-5-norm.yaml.results
+
+reporter: !IndependentLabelReporter
+  args:
+    device: cuda:0
+  reporting_root: *id_reporting_root
+  reporting_methods:
+    - label_accuracy
+    - v_entropy

@@ -76,8 +76,10 @@ class ProbeRegimen(InitYAMLObject):
         predictions = probe(word_representations)
         batch_loss, count = self.loss(predictions, output_batch)
         batch_loss.backward()
-        epoch_train_loss += batch_loss.detach().cpu().numpy()
-        epoch_train_loss_count += count.detach().cpu().numpy()
+        # epoch_train_loss += batch_loss.detach().cpu().numpy()
+        # epoch_train_loss_count += count.detach().cpu().numpy()
+        epoch_train_loss += batch_loss
+        epoch_train_loss_count += count
         self.optimizer.step()
         gradient_steps += 1
         if gradient_steps % eval_dev_every == 0:
@@ -94,8 +96,10 @@ class ProbeRegimen(InitYAMLObject):
             word_representations = model(input_batch)
             predictions = probe(word_representations)
             batch_loss, count = self.loss(predictions, output_batch)
-            epoch_dev_loss += batch_loss.detach().cpu().numpy()
-            epoch_dev_loss_count += count.detach().cpu().numpy()
+            # epoch_dev_loss += batch_loss.detach().cpu().numpy()
+            # epoch_dev_loss_count += count.detach().cpu().numpy()
+            epoch_dev_loss += batch_loss
+            epoch_dev_loss_count += count
           self.scheduler.step(epoch_dev_loss)
           tqdm.write('[epoch {}] Train loss: {}, Dev loss: {}'.format(epoch_index,
               epoch_train_loss/epoch_train_loss_count, epoch_dev_loss/epoch_dev_loss_count))
