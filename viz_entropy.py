@@ -1,22 +1,25 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
+from functools import reduce
 
-df = pd.read_csv('attnresln_values.csv')
+df1 = pd.read_csv("vinfo_data/attn_ptbpos_values.csv")
+df2 = pd.read_csv("vinfo_data/attnres_ptbpos_values.csv")
+df3 = pd.read_csv("vinfo_data/attnresln_ptbpos_values.csv")
 
-# Melt the DataFrame to have a long-form structure suitable for seaborn
-df_melted = df.melt(id_vars=['Layer'], value_vars=['Baseline', 'Conditional'],
-                    var_name='Type', value_name='Entropy')
+df1["Type"] = "ATTN"
+df2["Type"] = "ATTNRES"
+df3["Type"] = "ATTNRESLN"
 
-df_melted['Entropy'] = pd.to_numeric(df_melted['Entropy'], errors='coerce')
+df = pd.concat([df1, df2, df3], ignore_index = True)
 
 plt.figure(figsize=(10, 6))
-sb.lineplot(data=df_melted, x='Layer', y='Entropy', hue='Type')
-plt.title('V-Information for ATTNRESLN')
+sb.lineplot(data=df, x='Layer', y='Conditional', hue='Type')
+plt.title('V-Information (Conditional) (PTB_POS)')
 plt.xlabel('Layer')
-plt.ylabel('Entropy')
+plt.ylabel('V Entropy (Conditional)')
 plt.legend(title='Type')
 #plt.grid(True)
 
-output_file = 'attnresln_plot.png'
+output_file = 'vinfo_plots/v_info_ptbpos_conditional_plot.png'
 plt.savefig(output_file)

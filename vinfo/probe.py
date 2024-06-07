@@ -6,6 +6,8 @@ import torch
 import numpy
 from tqdm import tqdm
 from yaml import YAMLObject
+from accelerate import Accelerator
+accelerator = Accelerator()
 
 from utils import InitYAMLObject
 
@@ -37,7 +39,7 @@ class OneWordLinearLabelProbe(Probe):
     self.dropout = nn.Dropout(p=dropout)
     print('Applying dropout {}'.format(dropout))
     self.zero_features = zero_features
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """ Computes all n label logits for each sentence in a batch.
@@ -78,7 +80,7 @@ class OneWordMLPLabelProbe(Probe):
     self.dropout = nn.Dropout(p=dropout)
     print('Applying dropout {}'.format(dropout))
     self.zero_features = zero_features
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """ Computes all n label logits for each sentence in a batch.
@@ -119,7 +121,7 @@ class SentenceLinearLabelProbe(Probe):
     self.dropout = nn.Dropout(p=0)
     print('Applying dropout {}'.format(dropout))
     self.zero_features = zero_features
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """ Computes all n label logits for each sentence in a batch.
@@ -159,7 +161,7 @@ class SentenceMLPLabelProbe(Probe):
     self.dropout = nn.Dropout(p=0)
     print('Applying dropout {}'.format(dropout))
     self.zero_features = zero_features
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """ Computes all n label logits for each sentence in a batch.

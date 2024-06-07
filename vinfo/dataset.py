@@ -9,11 +9,13 @@ import Levenshtein as levenshtein
 from tqdm import tqdm
 from yaml import YAMLObject
 from transformers import AutoTokenizer, AutoModel
+from accelerate import Accelerator
+accelerator = Accelerator()
 #from allennlp.modules.elmo import batch_to_ids
 
 from utils import TRAIN_STR, DEV_STR, TEST_STR, InitYAMLObject
 
-BATCH_SIZE = 20
+BATCH_SIZE = 10
 """
 Classes for loading, caching, and yielding text datasets
 """
@@ -133,8 +135,8 @@ class ListDataset(Dataset, InitYAMLObject):
         new_alignment_tensor = torch.zeros(max_annotation_token_len, max_corpus_token_len)
         new_alignment_tensor[:input_alignment.shape[0], :input_alignment.shape[1]] = input_alignment
         intermediate_alignment_list.append(new_alignment_tensor)
-      input_annotation_tensors.append(torch.stack(intermediate_annotation_list).to(self.args['device']))
-      input_alignment_tensors.append(torch.stack(intermediate_alignment_list).to(self.args['device']))
+      input_annotation_tensors.append(torch.stack(intermediate_annotation_list).to(accelerator.device))
+      input_alignment_tensors.append(torch.stack(intermediate_alignment_list).to(accelerator.device))
 
     intermediate_annotation_list = []
     intermediate_alignment_list = []
@@ -143,7 +145,7 @@ class ListDataset(Dataset, InitYAMLObject):
       new_annotation_tensor = torch.zeros(max_output_annotation_len, dtype=torch.long)
       new_annotation_tensor[:len(output_annotation)] = output_annotation
       intermediate_annotation_list.append(new_annotation_tensor)
-    output_annotation_tensor = torch.stack(intermediate_annotation_list).to(self.args['device'])
+    output_annotation_tensor = torch.stack(intermediate_annotation_list).to(accelerator.device)
     sentences = [x[2] for x in observation_list]
     return ((input_annotation_tensors, input_alignment_tensors), output_annotation_tensor, sentences)
 
@@ -276,8 +278,8 @@ class HuggingfaceData(InitYAMLObject):
     hface_token_to_hface_string_alignment = self.token_to_character_alignment(hface_tokens_with_spaces)
     hface_string = ' '.join(hface_tokens)
     hface_character_to_deptb_character_alignment = self.levenshtein_matrix(hface_string, raw_string)
-    unnormalized_alignment = torch.matmul(torch.matmul(hface_token_to_hface_string_alignment.to(self.args['device']), hface_character_to_deptb_character_alignment.to(self.args['device'])),
-          torch.matmul(ptb_token_to_ptb_string_alignment.to(self.args['device']), ptb_to_deptb_alignment.to(self.args['device']).t()).t())
+    unnormalized_alignment = torch.matmul(torch.matmul(hface_token_to_hface_string_alignment.to(accelerator.device), hface_character_to_deptb_character_alignment.to(accelerator.device)),
+          torch.matmul(ptb_token_to_ptb_string_alignment.to(accelerator.device), ptb_to_deptb_alignment.to(accelerator.device).t()).t())
     return (unnormalized_alignment / torch.sum(unnormalized_alignment, dim=0)).cpu(), hface_tokens, raw_string
 
   def _setup_cache(self):

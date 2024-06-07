@@ -16,6 +16,9 @@ import seaborn as sns
 sns.set(style="darkgrid")
 mpl.rcParams['agg.path.chunksize'] = 10000
 
+from accelerate import Accelerator
+accelerator = Accelerator()
+
 import torch
 
 class Reporter(InitYAMLObject):
@@ -86,7 +89,7 @@ class IndependentLabelReporter(Reporter):
     total = 0
     correct = 0
     for prediction_batch, (_, label_batch, sentences) in zip(prediction_batches, dataset):
-      prediction_batch = prediction_batch.to(self.args['device'])
+      prediction_batch = prediction_batch.to(accelerator.device)
       if len(prediction_batch.shape) == 3:
         prediction_batch = torch.argmax(prediction_batch, 2)
       else:
@@ -107,7 +110,7 @@ class IndependentLabelReporter(Reporter):
     total_label_count = 0
     neg_logprob_sum = 0
     for prediction_batch, (_, label_batch, sentences) in zip(prediction_batches, dataset):
-      prediction_batch = prediction_batch.to(self.args['device'])
+      prediction_batch = prediction_batch.to(accelerator.device)
       batch_label_count = torch.sum((label_batch != 0).long())
       if len(prediction_batch.shape) == 3:
         prediction_batch = torch.softmax(prediction_batch, 2)
@@ -163,7 +166,7 @@ class NERReporter(IndependentLabelReporter):
     string_predictions = []
     string_labels = []
     for prediction_batch, (_, label_batch, sentences) in zip(prediction_batches, dataset):
-      prediction_batch = prediction_batch.to(self.args['device'])
+      prediction_batch = prediction_batch.to(accelerator.device)
       prediction_batch = torch.argmax(prediction_batch, 2)
       for prediction_sentence, label_sentence in zip(prediction_batch, label_batch):
         string_predictions.append(list(filter(lambda x: x != '-', [self.ner_task.category_string_of_label_int(x)

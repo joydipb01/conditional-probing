@@ -7,10 +7,13 @@ from yaml import YAMLObject
 
 import torch.nn as nn
 import torch
-from transformers import AutoModel, AutoConfig, BertModel
+from transformers import AutoModel, AutoConfig, BertModel, RobertaModel
+from accelerate import Accelerator
 #from allennlp.modules.elmo import _ElmoBiLm
 
 from utils import InitYAMLObject
+
+accelerator = Accelerator()
 
 class ELMoModel(nn.Module, InitYAMLObject):
     """
@@ -26,7 +29,7 @@ class ELMoModel(nn.Module, InitYAMLObject):
       self.weights_path = weights_path
       self.layer_index = layer_index
       self.elmo_bilm = _ElmoBiLm(options_path, weights_path, trainable)
-      self.to(args['device'])
+      self.to(accelerator.device)
 
     def forward(self, batch):
       """
@@ -65,7 +68,7 @@ class HuggingfaceModel(nn.Module, InitYAMLObject):
     for param in self.huggingface_model.parameters():
       param.requires_grad = trainable
     self.index = index
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """
@@ -105,7 +108,7 @@ class BertATTNKobayashiModel(nn.Module, InitYAMLObject):
     for param in self.bert_model.parameters():
       param.requires_grad = trainable
     self.index = index
-    self.to(args['device'])
+    self.to(accelerator.device)
   
   def forward(self, batch):
     """
@@ -148,7 +151,7 @@ class BertATTNRESKobayashiModel(nn.Module, InitYAMLObject):
     for param in self.bert_model.parameters():
       param.requires_grad = trainable
     self.index = index
-    self.to(args['device'])
+    self.to(accelerator.device)
   
   def forward(self, batch):
     """
@@ -190,7 +193,134 @@ class BertATTNRESLNKobayashiModel(nn.Module, InitYAMLObject):
     for param in self.bert_model.parameters():
       param.requires_grad = trainable
     self.index = index
-    self.to(args['device'])
+    self.to(accelerator.device)
+  
+  def forward(self, batch):
+    """
+    Args:
+      batch: a tuple containing:
+        - a tensor of shape (batch_size, subword_seq_len) containing
+          token id indices
+        - a tensor of shape (subword_len, seq_len) containing
+          alignment between the subwords and the output sequence
+    Returns:
+      Representations from the given huggingface-formatted model, aligned
+      to the corpus-given tokens
+    """
+    #print("Enter Model....")
+    annotation, alignment = batch
+    #_, _, hiddens = self.huggingface_model(annotation)
+    if annotation.shape[1] > 512:
+      annotation = annotation[:, :512]
+    _, _, norms = self.bert_model(annotation, output_norms = True)
+    norms_padded = self.pad_to_feature_count(norms[self.index][3], 768)
+    return torch.bmm(norms_padded.transpose(1,2), alignment).transpose(1,2)
+  
+class RobertaATTNKobayashiModel(nn.Module, InitYAMLObject):
+  """
+  Taking token-ids and providing representation
+  layers from a RoBERTa model. Implemented separately
+  to account for Kobayashi's transformers library
+  """
+  yaml_tag = '!RobertaATTNKobayashiModel'
+
+  def pad_to_feature_count(self, tensor, feature_count):
+    pad_width = (0, feature_count - tensor.size(2))
+    padded_tensor = nn.functional.pad(tensor, pad_width, mode='constant', value=0)
+    return padded_tensor
+
+  def __init__(self, args, model_string, trainable, index):
+    super(RobertaATTNKobayashiModel, self).__init__()
+    self.bert_model = RobertaModel.from_pretrained(model_string)
+    for param in self.bert_model.parameters():
+      param.requires_grad = trainable
+    self.index = index
+    self.to(accelerator.device)
+  
+  def forward(self, batch):
+    """
+    Args:
+      batch: a tuple containing:
+        - a tensor of shape (batch_size, subword_seq_len) containing
+          token id indices
+        - a tensor of shape (subword_len, seq_len) containing
+          alignment between the subwords and the output sequence
+    Returns:
+      Representations from the given huggingface-formatted model, aligned
+      to the corpus-given tokens
+    """
+    #print("Enter Model....")
+    annotation, alignment = batch
+    #_, _, hiddens = self.huggingface_model(annotation)
+    if annotation.shape[1] > 512:
+      annotation = annotation[:, :512]
+    _, _, norms = self.bert_model(annotation, output_norms = True)
+    norms_padded = self.pad_to_feature_count(norms[self.index][1], 768)
+    #norms_padded = norms[self.index][1]
+    return torch.bmm(norms_padded.transpose(1,2), alignment).transpose(1,2)
+
+class RobertaATTNRESKobayashiModel(nn.Module, InitYAMLObject):
+  """
+  Taking token-ids and providing representation
+  layers from a RoBERTa model. Implemented separately
+  to account for Kobayashi's transformers library
+  """
+  yaml_tag = '!RobertaATTNRESKobayashiModel'
+
+  def pad_to_feature_count(self, tensor, feature_count):
+    pad_width = (0, feature_count - tensor.size(2))
+    padded_tensor = nn.functional.pad(tensor, pad_width, mode='constant', value=0)
+    return padded_tensor
+
+  def __init__(self, args, model_string, trainable, index):
+    super(RobertaATTNRESKobayashiModel, self).__init__()
+    self.bert_model = RobertaModel.from_pretrained(model_string)
+    for param in self.bert_model.parameters():
+      param.requires_grad = trainable
+    self.index = index
+    self.to(accelerator.device)
+  
+  def forward(self, batch):
+    """
+    Args:
+      batch: a tuple containing:
+        - a tensor of shape (batch_size, subword_seq_len) containing
+          token id indices
+        - a tensor of shape (subword_len, seq_len) containing
+          alignment between the subwords and the output sequence
+    Returns:
+      Representations from the given huggingface-formatted model, aligned
+      to the corpus-given tokens
+    """
+    #print("Enter Model....")
+    annotation, alignment = batch
+    #_, _, hiddens = self.huggingface_model(annotation)
+    if annotation.shape[1] > 512:
+      annotation = annotation[:, :512]
+    _, _, norms = self.bert_model(annotation, output_norms = True)
+    norms_padded = self.pad_to_feature_count(norms[self.index][2], 768)
+    return torch.bmm(norms_padded.transpose(1,2), alignment).transpose(1,2)
+
+class RobertaATTNRESLNKobayashiModel(nn.Module, InitYAMLObject):
+  """
+  Taking token-ids and providing representation
+  layers from a RoBERTa model. Implemented separately
+  to account for Kobayashi's transformers library
+  """
+  yaml_tag = '!RobertaATTNRESLNKobayashiModel'
+
+  def pad_to_feature_count(self, tensor, feature_count):
+    pad_width = (0, feature_count - tensor.size(2))
+    padded_tensor = nn.functional.pad(tensor, pad_width, mode='constant', value=0)
+    return padded_tensor
+
+  def __init__(self, args, model_string, trainable, index):
+    super(RobertaATTNRESLNKobayashiModel, self).__init__()
+    self.bert_model = RobertaModel.from_pretrained(model_string)
+    for param in self.bert_model.parameters():
+      param.requires_grad = trainable
+    self.index = index
+    self.to(accelerator.device)
   
   def forward(self, batch):
     """
@@ -225,7 +355,7 @@ class AnnotationModel(nn.Module, InitYAMLObject):
 
     # Set the pad token to 0
     self.embeddings.weight.data[0,0] = torch.tensor(0)
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """
@@ -254,7 +384,7 @@ class ListModel(nn.Module, InitYAMLObject):
     super(ListModel, self).__init__()
     self.args  = args
     self.models = nn.ModuleList(models)
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, batch):
     """

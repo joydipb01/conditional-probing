@@ -3,6 +3,9 @@
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+from accelerate import Accelerator
+
+accelerator = Accelerator()
 
 class CustomCrossEntropyLoss(nn.Module):
   """Custom cross-entropy loss"""
@@ -11,7 +14,7 @@ class CustomCrossEntropyLoss(nn.Module):
     tqdm.write('Constructing CrossEntropyLoss')
     self.args = args
     self.pytorch_ce_loss = torch.nn.CrossEntropyLoss(ignore_index=0, reduction='sum')
-    self.to(args['device'])
+    self.to(accelerator.device)
 
   def forward(self, predictions, label_batch):
     """

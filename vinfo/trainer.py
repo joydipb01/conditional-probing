@@ -10,6 +10,10 @@ from torch import optim
 
 from loss import CustomCrossEntropyLoss
 
+from accelerate import Accelerator
+
+accelerator = Accelerator()
+
 class ProbeRegimen(InitYAMLObject):
   """Basic regimen for training and running inference on probes.
   
@@ -61,6 +65,8 @@ class ProbeRegimen(InitYAMLObject):
     #eval_dev_every = self.eval_dev_every if self.eval_dev_every != -1 else EVAL_EVERY
     eval_dev_every = gradient_steps_between_eval
 
+    probe, self.optimizer, train_dataset, self.scheduler = accelerator.prepare(probe, self.optimizer, train_dataset, self.scheduler)
+
     eval_index = 0
     min_dev_loss_eval_index = -1
     eval_dev_losses = []
@@ -75,7 +81,8 @@ class ProbeRegimen(InitYAMLObject):
         word_representations = model(input_batch)
         predictions = probe(word_representations)
         batch_loss, count = self.loss(predictions, output_batch)
-        batch_loss.backward()
+        #batch_loss.backward()
+        accelerator.backward(batch_loss)
         # epoch_train_loss += batch_loss.detach().cpu().numpy()
         # epoch_train_loss_count += count.detach().cpu().numpy()
         epoch_train_loss += batch_loss
